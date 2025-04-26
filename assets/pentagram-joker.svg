@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 71 95" width="71" height="95">
+  <!-- Background card -->
+  <rect width="71" height="95" rx="5" ry="5" fill="#222222" />
+  
+  <!-- Border -->
+  <rect x="2" y="2" width="67" height="91" rx="3" ry="3" fill="none" stroke="#600000" stroke-width="2" />
+  
+  <!-- Large Pentagram -->
+  <g transform="translate(35.5, 47.5)">
+    <path d="M0,-25 L7.6,19.1 L-24.7,-7.7 L24.7,-7.7 L-7.6,19.1 Z" fill="none" stroke="#cc0000" stroke-width="2.5" />
+    <circle cx="0" cy="0" r="27" fill="none" stroke="#cc0000" stroke-width="1.5" />
+    
+    <!-- Glowing effect -->
+    <path d="M0,-25 L7.6,19.1 L-24.7,-7.7 L24.7,-7.7 L-7.6,19.1 Z" fill="none" stroke="#ff6600" stroke-width="0.7" stroke-opacity="0.5" />
+  </g>
+  
+  <!-- Flames at each point of the pentagram -->
+  <path d="M35.5,22.5 C33.5,20 37.5,20 35.5,18 C34.5,16 36.5,16 35.5,14" fill="none" stroke="#ff6600" stroke-width="1" />
+  <path d="M43.1,66.6 C41.1,64.1 45.1,64.1 43.1,62.1 C42.1,60.1 44.1,60.1 43.1,58.1" fill="none" stroke="#ff6600" stroke-width="1" />
+  <path d="M10.8,39.8 C8.8,37.3 12.8,37.3 10.8,35.3 C9.8,33.3 11.8,33.3 10.8,31.3" fill="none" stroke="#ff6600" stroke-width="1" />
+  <path d="M60.2,39.8 C58.2,37.3 62.2,37.3 60.2,35.3 C59.2,33.3 61.2,33.3 60.2,31.3" fill="none" stroke="#ff6600" stroke-width="1" />
+  <path d="M27.9,66.6 C25.9,64.1 29.9,64.1 27.9,62.1 C26.9,60.1 28.9,60.1 27.9,58.1" fill="none" stroke="#ff6600" stroke-width="1" />
+  
+  <!-- Small Symbols Inside Pentagram -->
+  <circle cx="35.5" cy="47.5" r="3" fill="#cc0000" />
+  <path d="M32.5,47.5 L38.5,47.5 M35.5,44.5 L35.5,50.5" stroke="#ffffff" stroke-width="1" />
+  
+  <!-- Blood Drops -->
+  <path d="M15,70 Q15,73 13,75 Q11,73 15,70" fill="#cc0000" />
+  <path d="M56,70 Q56,73 54,75 Q52,73 56,70" fill="#cc0000" />
+  <path d="M35.5,75 Q35.5,78 33.5,80 Q31.5,78 35.5,75" fill="#cc0000" />
+  
+  <!-- Top Text -->
+  <text x="35.5" y="15" font-family="Arial, sans-serif" font-size="10" fill="#cc0000" text-anchor="middle" font-weight="bold">PENTAGRAM</text>
+  
+  <!-- Bottom Text -->
+  <text x="35.5" y="85" font-family="Arial, sans-serif" font-size="8" fill="#cc0000" text-anchor="middle" font-weight="bold">SACRIFICE</text>
+  
+  <!-- Small demonic symbols in corners -->
+  <text x="8" y="20" font-family="Arial, sans-serif" font-size="8" fill="#cc0000">⛧</text>
+  <text x="63" y="20" font-family="Arial, sans-serif" font-size="8" fill="#cc0000">⛧</text>
+  <text x="8" y="80" font-family="Arial, sans-serif" font-size="8" fill="#cc0000">⛧</text>
+  <text x="63" y="80" font-family="Arial, sans-serif" font-size="8" fill="#cc0000">⛧</text>
+</svg>

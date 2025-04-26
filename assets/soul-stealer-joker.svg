@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 71 95" width="71" height="95">
+  <!-- Background card -->
+  <rect width="71" height="95" rx="5" ry="5" fill="#0a0a16" />
+  
+  <!-- Border -->
+  <rect x="2" y="2" width="67" height="91" rx="3" ry="3" fill="none" stroke="#1a1a3a" stroke-width="2" />
+  
+  <!-- Soul Collector Figure -->
+  <g transform="translate(35.5, 45)">
+    <!-- Hooded figure -->
+    <path d="M0,-15 L-12,15 L12,15 Z" fill="#2a2a4a" />
+    <path d="M-12,15 C-12,25 12,25 12,15" fill="#2a2a4a" />
+    
+    <!-- Glowing eyes -->
+    <circle cx="-4" cy="-5" r="1.5" fill="#5af" />
+    <circle cx="4" cy="-5" r="1.5" fill="#5af" />
+    
+    <!-- Soul Orb -->
+    <circle cx="0" cy="5" r="5" fill="#5af" fill-opacity="0.7" />
+    <circle cx="0" cy="5" r="3" fill="#5af" fill-opacity="0.9" />
+    
+    <!-- Soul wisp escaping -->
+    <path d="M0,0 C5,-5 -5,-10 0,-15 C5,-20 5,-15 3,-25" fill="none" stroke="#5af" stroke-width="0.7" />
+    <path d="M0,0 C-5,-5 5,-10 0,-15 C-5,-20 -5,-15 -3,-25" fill="none" stroke="#5af" stroke-width="0.7" />
+  </g>
+  
+  <!-- Ethereal Souls floating around -->
+  <g opacity="0.7">
+    <!-- Soul 1 -->
+    <path d="M15,30 C17,28 13,25 15,22 C17,20 12,18 15,15" fill="none" stroke="#5af" stroke-width="0.8" />
+    <!-- Soul 2 -->
+    <path d="M55,30 C57,28 53,25 55,22 C57,20 52,18 55,15" fill="none" stroke="#5af" stroke-width="0.8" />
+    <!-- Soul 3 -->
+    <path d="M20,65 C22,63 18,60 20,57 C22,55 17,53 20,50" fill="none" stroke="#5af" stroke-width="0.8" />
+    <!-- Soul 4 -->
+    <path d="M50,65 C52,63 48,60 50,57 C52,55 47,53 50,50" fill="none" stroke="#5af" stroke-width="0.8" />
+  </g>
+  
+  <!-- Souls being absorbed -->
+  <path d="M15,45 C20,44 25,43 35.5,45" fill="none" stroke="#5af" stroke-width="0.8" stroke-dasharray="2,2" />
+  <path d="M55,45 C50,44 45,43 35.5,45" fill="none" stroke="#5af" stroke-width="0.8" stroke-dasharray="2,2" />
+  
+  <!-- Small souls as decoration -->
+  <circle cx="10" cy="20" r="1" fill="#5af" />
+  <circle cx="60" cy="20" r="1" fill="#5af" />
+  <circle cx="10" cy="75" r="1" fill="#5af" />
+  <circle cx="60" cy="75" r="1" fill="#5af" />
+  
+  <!-- Top Text -->
+  <text x="35.5" y="15" font-family="Arial, sans-serif" font-size="10" fill="#5af" text-anchor="middle" font-weight="bold">SOUL</text>
+  
+  <!-- Bottom Text -->
+  <text x="35.5" y="85" font-family="Arial, sans-serif" font-size="10" fill="#5af" text-anchor="middle" font-weight="bold">STEALER</text>
+  
+  <!-- Ritual arcane symbols subtly in background -->
+  <g opacity="0.2">
+    <path d="M20,30 L25,35 M20,35 L25,30" stroke="#5af" stroke-width="0.5" />
+    <path d="M45,30 L50,35 M45,35 L50,30" stroke="#5af" stroke-width="0.5" />
+    <path d="M20,60 L25,65 M20,65 L25,60" stroke="#5af" stroke-width="0.5" />
+    <path d="M45,60 L50,65 M45,65 L50,60" stroke="#5af" stroke-width="0.5" />
+    <circle cx="35.5" cy="47.5" r="25" fill="none" stroke="#5af" stroke-width="0.5" />
+  </g>
+</svg>
