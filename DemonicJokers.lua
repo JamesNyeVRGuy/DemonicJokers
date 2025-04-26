@@ -212,12 +212,12 @@ local jokers = {
     demonicritualjoker = {
         name = "Demonic Ritual",
         text = {
-            "At the start of each {C:attention}round{}, randomly chooses",
-            "between {C:mult}+#1# mult{}, {C:chips}half the blind chips{},",
-            "or {C:attention}+1 hand size{} for this round",
-            "{C:red}(Blood Money costs all your dollars){}",
+            "At the start of each {C:attention}round{}, randomly performs one ritual:",
+            "{C:mult}+50 mult{} but {C:red}takes 25% of scored chips as Soul Tax{},",
+            "{C:chips}90% of blind chips{} but costs all dollars, or {C:attention}+4 hand size{} with {C:red}4 destroyed cards{}",
+            "{C:red}(A different dark gift each round){}",
         },
-        config = { extra = { mult_option = 5, chip_option = 50, used_this_round = false, last_round_name = "" } },
+        config = { extra = { mult_option = 50, chip_option = 90, used_this_round = false, last_round_name = "" } },
         pos = { x = 0, y = 0 },
         rarity = 2,
         cost = 6,
@@ -232,16 +232,19 @@ local jokers = {
             -- Initialize properties if they don't exist
             self.ritual_effect = self.ritual_effect or nil
             self.temp_mult = self.temp_mult or 0
+            self.hand_size_added = self.hand_size_added or 0
+            self.soul_tax_pending = self.soul_tax_pending or false
 
             -- Check specifically for blind selection context
             if context.setting_blind and not context.blueprint then
                 -- Choose a random effect (1-3)
-                local effect = math.random(3)
+                local effect = 1
 
                 if effect == 1 then
-                    -- Apply mult boost
+                    -- Apply mult boost with soul tax (25% of scored chips)
                     self.ritual_effect = "mult"
                     self.temp_mult = self.ability.extra.mult_option
+                    self.soul_tax_pending = true  -- Flag to apply Soul Tax after scoring
 
                     -- Add visual indicator for mult
                     if not self.children.effect_indicator then
@@ -288,7 +291,7 @@ local jokers = {
                         end
                     }))
                 elseif effect == 2 then
-                    -- Blood Money: Add half the blind chips but set money to 0
+                    -- Blood Money: Add 90% of the blind chips but set money to 0
                     self.ritual_effect = "bloodmoney"
 
                     -- Add visual indicator for blood money
@@ -329,24 +332,16 @@ local jokers = {
                         trigger = 'after',
                         delay = 0.3,
                         func = function()
-                            -- Calculate half the needed chips (safely)
-                            local half_chips = 0
+                            -- Calculate 90% of the needed chips (safely)
+                            local blood_money_chips = 0
                             if G.GAME and G.GAME.blind and G.GAME.blind.chips then
-                                half_chips = math.floor(G.GAME.blind.chips / 2)
+                                blood_money_chips = math.floor(G.GAME.blind.chips * 0.9)
                             end
 
                             -- Add chips
-                            ease_chips(half_chips)
+                            ease_chips(blood_money_chips)
 
-                            -- Set money to 0 (safely)
-                            local current_money = 0
-                            if G.GAME and G.GAME.dollars then
-                                current_money = G.GAME.dollars
-                            end
-
-                            if current_money > 0 then
-                                ease_dollars(-current_money)
-                            end
+                            ease_dollars(-10)
 
                             card_eval_status_text(self, 'extra', nil, nil, nil, {message = "BLOOD SACRIFICE", colour = G.C.RED})
                             play_sound('tarot1', 1, 0.6)
@@ -357,6 +352,7 @@ local jokers = {
                 else
                     -- Increase hand size for this round only
                     self.ritual_effect = "handsize"
+                    self.hand_size_added = 4 -- Store how many we added
 
                     -- Add visual indicator for hand size
                     if not self.children.effect_indicator then
@@ -398,7 +394,58 @@ local jokers = {
                         func = function()
                             -- Only try to change hand size if G.hand exists
                             if G.hand then
-                                G.hand:change_size(1)
+                                G.hand:change_size(4)
+                            end
+
+                            -- Destroy 4 random cards from deck
+                            if G.deck and G.deck.cards and #G.deck.cards >= 4 then
+                                -- Create a list of cards that can be destroyed
+                                local destroyable_cards = {}
+                                for _, card in ipairs(G.deck.cards) do
+                                    table.insert(destroyable_cards, card)
+                                end
+
+                                -- Destroy 4 random cards with visual effects
+                                for i = 1, 4 do
+                                    if #destroyable_cards > 0 then
+                                        -- Select a random card to destroy
+                                        local rand_index = math.random(#destroyable_cards)
+                                        local card_to_destroy = destroyable_cards[rand_index]
+
+                                        -- Remove it from our list to prevent double selection
+                                        table.remove(destroyable_cards, rand_index)
+
+                                        -- Visual effect and destroy
+                                        G.E_MANAGER:add_event(Event({
+                                            trigger = 'after',
+                                            delay = 0.2 * i, -- Stagger the destruction
+                                            func = function()
+                                                card_to_destroy:juice_up(0.3, 0.3)
+                                                play_sound('card1', 0.2)
+
+                                                G.E_MANAGER:add_event(Event({
+                                                    trigger = 'after',
+                                                    delay = 0.1,
+                                                    func = function()
+                                                        card_to_destroy:start_dissolve({G.C.RED}, false)
+                                                        return true
+                                                    end
+                                                }))
+
+                                                return true
+                                            end
+                                        }))
+                                    end
+                                end
+                            else
+                                -- Not enough cards to destroy
+                                attention_text({
+                                    text = "Not enough cards to sacrifice!",
+                                    hold = 1.5,
+                                    scale = 1.0,
+                                    major = self,
+                                    backdrop_colour = G.C.RED
+                                })
                             end
 
                             card_eval_status_text(self, 'extra', nil, nil, nil, {message = "RITUAL COMPLETE", colour = G.C.RED})
@@ -417,6 +464,10 @@ local jokers = {
                         local effect_text = "Demonic Ritual Activated!"
                         if self.ritual_effect == "bloodmoney" then
                             effect_text = "Blood Money: Souls for Chips!"
+                        elseif self.ritual_effect == "handsize" then
+                            effect_text = "Dark Pact: Bigger Hand, Fewer Cards!"
+                        elseif self.ritual_effect == "mult" then
+                            effect_text = "Soul Tax: 25% of Your Winnings are Mine!"
                         end
 
                         attention_text({
@@ -433,11 +484,54 @@ local jokers = {
                 }))
             end
 
-            -- Check for end of round to reset effects
+            -- Track scored chips and apply Soul Tax during scoring calculation
+            if self.soul_tax_pending then
+                -- Hook into Balatro's hand_eval to apply the Soul Tax
+                if not G.FUNCS.original_hand_eval and not self.patched_scoring then
+                    self.patched_scoring = true
+
+                    -- Store the original hand_eval function
+                    G.FUNCS.original_hand_eval = G.FUNCS.hand_eval
+
+                    -- Create a new hand_eval function that applies Soul Tax
+                    G.FUNCS.hand_eval = function(poker_hand, context)
+                        -- Get the original calculated result
+                        local result = G.FUNCS.original_hand_eval(poker_hand, context)
+
+                        -- Check if we should apply Soul Tax
+                        if result and result.score and self.soul_tax_pending then
+                            -- Calculate Soul Tax (25% of chips)
+                            local chips_before_tax = result.chips or 0
+                            local soul_tax = math.floor(chips_before_tax * 0.25)
+
+                            if soul_tax > 0 then
+                                -- Reduce the chips by Soul Tax
+                                result.chips = chips_before_tax - soul_tax
+
+                                -- Show Soul Tax message
+                                G.E_MANAGER:add_event(Event({
+                                    trigger = 'after',
+                                    delay = 0.3,
+                                    func = function()
+                                        card_eval_status_text(self, 'extra', nil, nil, nil, {message = "SOUL TAX: -" .. soul_tax .. " CHIPS", colour = G.C.RED})
+                                        play_sound('tarot1', 1, 0.6)
+                                        self:juice_up(0.5, 0.5)
+                                        return true
+                                    end
+                                }))
+                            end
+                        end
+
+                        return result
+                    end
+                end
+            end
+            -- Reset flags at end of round
             if context.end_of_round and not context.individual and not context.blueprint then
                 -- Reset hand size at end of round if we increased it (safely)
-                if self.ritual_effect == "handsize" and G.hand then
-                    G.hand:change_size(-1)
+                if self.ritual_effect == "handsize" and G.hand and self.hand_size_added > 0 then
+                    G.hand:change_size(-self.hand_size_added)
+                    self.hand_size_added = 0
                 end
 
                 -- Remove the visual indicator
@@ -449,15 +543,34 @@ local jokers = {
                 -- Reset all flags for next round
                 self.ritual_effect = nil
                 self.temp_mult = 0
+                self.soul_tax_pending = false
+
+                -- Restore original hand_eval if we patched it
+                if G.FUNCS.original_hand_eval and self.patched_scoring then
+                    G.FUNCS.hand_eval = G.FUNCS.original_hand_eval
+                    G.FUNCS.original_hand_eval = nil
+                    self.patched_scoring = false
+                end
             end
 
-            -- Apply mult effect if it was chosen
+            -- Apply mult effect if it was chosen and apply Soul Tax during scoring
             if SMODS.end_calculate_context and SMODS.end_calculate_context(context) and self.temp_mult and self.temp_mult > 0 then
-                return {
-                    mult_mod = self.temp_mult,
-                    card = self,
-                    message = localize { type = 'variable', key = 'a_mult', vars = { self.temp_mult } }
-                }
+                if self.soul_tax_pending then
+                    return {
+                        mult_mod = self.temp_mult,
+                        card = self,
+                        message = localize { type = 'variable', key = 'a_mult', vars = { self.temp_mult } },
+                        -- This is a custom property that the scoring system will use to apply the Soul Tax
+                        soul_tax = true,
+                        soul_tax_percent = 0.25
+                    }
+                else
+                    return {
+                        mult_mod = self.temp_mult,
+                        card = self,
+                        message = localize { type = 'variable', key = 'a_mult', vars = { self.temp_mult } }
+                    }
+                end
             end
 
             return nil
