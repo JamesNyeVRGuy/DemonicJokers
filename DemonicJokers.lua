@@ -208,15 +208,16 @@ local jokers = {
         end,
     },
 
+    -- Fixed version of the demonicritualjoker
     demonicritualjoker = {
         name = "Demonic Ritual",
         text = {
-            "At the start of each {C:attention}round{}, choose",
-            "between {C:mult}+#1# mult{}, {C:chips}+#2# chips{},",
+            "At the start of each {C:attention}round{}, randomly chooses",
+            "between {C:mult}+#1# mult{}, {C:chips}half the blind chips{},",
             "or {C:attention}+1 hand size{} for this round",
-            "{C:red}(debug: Offers choices at start of round){}",
+            "{C:red}(Blood Money costs all your dollars){}",
         },
-        config = { extra = { mult_option = 5, chip_option = 50, used_this_round = false } },
+        config = { extra = { mult_option = 5, chip_option = 50, used_this_round = false, last_round_name = "" } },
         pos = { x = 0, y = 0 },
         rarity = 2,
         cost = 6,
@@ -228,81 +229,238 @@ local jokers = {
         soul_pos = nil,
 
         calculate = function(self, context)
-            if G.GAME.current_round.name ~= self.last_round_name and not self.ability.extra.used_this_round then
-                self.last_round_name = G.GAME.current_round.name
-                self.ability.extra.used_this_round = true
-                
-                -- Create a ritual choice
-                G.E_MANAGER:add_event(Event({
-                    trigger = 'after',
-                    delay = 0.1,
-                    func = function()
-                        -- Prevent UI overlap
-                        if G.CONTROLLER.minigame_active then return false end
-                        
-                        local options = {
-                            {
-                                id = 'mult',
-                                text = localize{type='variable',key='a_mult',vars={self.ability.extra.mult_option}},
-                                btn_func = function()
-                                    -- Apply the mult boost
-                                    self.temp_mult = self.ability.extra.mult_option
-                                    card_eval_status_text(self, 'extra', nil, nil, nil, {message = "DARK POWER", colour = G.C.RED})
-                                end
+            -- Initialize properties if they don't exist
+            self.ritual_effect = self.ritual_effect or nil
+            self.temp_mult = self.temp_mult or 0
+
+            -- Check specifically for blind selection context
+            if context.setting_blind and not context.blueprint then
+                -- Choose a random effect (1-3)
+                local effect = math.random(3)
+
+                if effect == 1 then
+                    -- Apply mult boost
+                    self.ritual_effect = "mult"
+                    self.temp_mult = self.ability.extra.mult_option
+
+                    -- Add visual indicator for mult
+                    if not self.children.effect_indicator then
+                        self.children.effect_indicator = UIBox{
+                            definition = {
+                                n=G.UIT.ROOT,
+                                config={align = "cm", padding = 0.05, r = 0.1, colour = G.C.RED},
+                                nodes={
+                                    {n=G.UIT.T, config={text = "M", colour = G.C.WHITE, scale = 0.5}}
+                                }
                             },
-                            {
-                                id = 'chips',
-                                text = localize{type='variable',key='a_chips',vars={self.ability.extra.chip_option}},
-                                btn_func = function()
-                                    -- Give chips
-                                    ease_chips(self.ability.extra.chip_option)
-                                    card_eval_status_text(self, 'extra', nil, nil, nil, {message = "BLOOD MONEY", colour = G.C.RED})
-                                end
-                            },
-                            {
-                                id = 'handsize',
-                                text = "+1 Hand Size",
-                                btn_func = function()
-                                    -- Increase hand size for this round only
-                                    G.hand.config.card_limit = G.hand.config.card_limit + 1
-                                    card_eval_status_text(self, 'extra', nil, nil, nil, {message = "RITUAL COMPLETE", colour = G.C.RED})
-                                end
+                            config = {
+                                align = "cm",
+                                offset = {x=0, y=0},
+                                parent = self
                             }
                         }
-                        
-                        G.E_MANAGER:add_event(Event({
-                            trigger = 'after',
-                            delay = 0.1,
-                            func = function()
-                                create_UIBox_choice_dialog(
-                                    options,
-                                    "Choose Your Ritual",
-                                    false
-                                )
-                                return true
+                    else
+                        self.children.effect_indicator:remove()
+                        self.children.effect_indicator = UIBox{
+                            definition = {
+                                n=G.UIT.ROOT,
+                                config={align = "cm", padding = 0.05, r = 0.1, colour = G.C.RED},
+                                nodes={
+                                    {n=G.UIT.T, config={text = "M", colour = G.C.WHITE, scale = 0.5}}
+                                }
+                            },
+                            config = {
+                                align = "cm",
+                                offset = {x=0, y=0},
+                                parent = self
+                            }
+                        }
+                    end
+
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'after',
+                        delay = 0.3,
+                        func = function()
+                            card_eval_status_text(self, 'extra', nil, nil, nil, {message = "DARK POWER", colour = G.C.RED})
+                            play_sound('tarot1', 1, 0.6)
+                            self:juice_up(0.5, 0.5)
+                            return true
+                        end
+                    }))
+                elseif effect == 2 then
+                    -- Blood Money: Add half the blind chips but set money to 0
+                    self.ritual_effect = "bloodmoney"
+
+                    -- Add visual indicator for blood money
+                    if not self.children.effect_indicator then
+                        self.children.effect_indicator = UIBox{
+                            definition = {
+                                n=G.UIT.ROOT,
+                                config={align = "cm", padding = 0.05, r = 0.1, colour = G.C.MONEY},
+                                nodes={
+                                    {n=G.UIT.T, config={text = "$", colour = G.C.WHITE, scale = 0.5}}
+                                }
+                            },
+                            config = {
+                                align = "cm",
+                                offset = {x=0, y=0},
+                                parent = self
+                            }
+                        }
+                    else
+                        self.children.effect_indicator:remove()
+                        self.children.effect_indicator = UIBox{
+                            definition = {
+                                n=G.UIT.ROOT,
+                                config={align = "cm", padding = 0.05, r = 0.1, colour = G.C.MONEY},
+                                nodes={
+                                    {n=G.UIT.T, config={text = "$", colour = G.C.WHITE, scale = 0.5}}
+                                }
+                            },
+                            config = {
+                                align = "cm",
+                                offset = {x=0, y=0},
+                                parent = self
+                            }
+                        }
+                    end
+
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'after',
+                        delay = 0.3,
+                        func = function()
+                            -- Calculate half the needed chips (safely)
+                            local half_chips = 0
+                            if G.GAME and G.GAME.blind and G.GAME.blind.chips then
+                                half_chips = math.floor(G.GAME.blind.chips / 2)
                             end
-                        }))
-                        
+
+                            -- Add chips
+                            ease_chips(half_chips)
+
+                            -- Set money to 0 (safely)
+                            local current_money = 0
+                            if G.GAME and G.GAME.dollars then
+                                current_money = G.GAME.dollars
+                            end
+
+                            if current_money > 0 then
+                                ease_dollars(-current_money)
+                            end
+
+                            card_eval_status_text(self, 'extra', nil, nil, nil, {message = "BLOOD SACRIFICE", colour = G.C.RED})
+                            play_sound('tarot1', 1, 0.6)
+                            self:juice_up(0.5, 0.5)
+                            return true
+                        end
+                    }))
+                else
+                    -- Increase hand size for this round only
+                    self.ritual_effect = "handsize"
+
+                    -- Add visual indicator for hand size
+                    if not self.children.effect_indicator then
+                        self.children.effect_indicator = UIBox{
+                            definition = {
+                                n=G.UIT.ROOT,
+                                config={align = "cm", padding = 0.05, r = 0.1, colour = G.C.CHIPS},
+                                nodes={
+                                    {n=G.UIT.T, config={text = "H", colour = G.C.WHITE, scale = 0.5}}
+                                }
+                            },
+                            config = {
+                                align = "cm",
+                                offset = {x=0, y=0},
+                                parent = self
+                            }
+                        }
+                    else
+                        self.children.effect_indicator:remove()
+                        self.children.effect_indicator = UIBox{
+                            definition = {
+                                n=G.UIT.ROOT,
+                                config={align = "cm", padding = 0.05, r = 0.1, colour = G.C.CHIPS},
+                                nodes={
+                                    {n=G.UIT.T, config={text = "H", colour = G.C.WHITE, scale = 0.5}}
+                                }
+                            },
+                            config = {
+                                align = "cm",
+                                offset = {x=0, y=0},
+                                parent = self
+                            }
+                        }
+                    end
+
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'after',
+                        delay = 0.3,
+                        func = function()
+                            -- Only try to change hand size if G.hand exists
+                            if G.hand then
+                                G.hand:change_size(1)
+                            end
+
+                            card_eval_status_text(self, 'extra', nil, nil, nil, {message = "RITUAL COMPLETE", colour = G.C.RED})
+                            play_sound('tarot1', 1, 0.6)
+                            self:juice_up(0.5, 0.5)
+                            return true
+                        end
+                    }))
+                end
+
+                -- Show a message indicating the ritual effect
+                G.E_MANAGER:add_event(Event({
+                    trigger = 'after',
+                    delay = 0.5,
+                    func = function()
+                        local effect_text = "Demonic Ritual Activated!"
+                        if self.ritual_effect == "bloodmoney" then
+                            effect_text = "Blood Money: Souls for Chips!"
+                        end
+
+                        attention_text({
+                            text = effect_text,
+                            hold = 2.0,
+                            scale = 1.2,
+                            major = self,
+                            backdrop_colour = G.C.RED,
+                            align = "cm",
+                            offset = {x = 0, y = 0}
+                        })
                         return true
                     end
                 }))
             end
-            
+
+            -- Check for end of round to reset effects
             if context.end_of_round and not context.individual and not context.blueprint then
-                -- Reset temporary effects at end of round
-                if G.hand.config.card_limit > G.hand.config.card_limit_base then
-                    G.hand.config.card_limit = G.hand.config.card_limit_base
+                -- Reset hand size at end of round if we increased it (safely)
+                if self.ritual_effect == "handsize" and G.hand then
+                    G.hand:change_size(-1)
                 end
-                self.ability.extra.used_this_round = false
+
+                -- Remove the visual indicator
+                if self.children.effect_indicator then
+                    self.children.effect_indicator:remove()
+                    self.children.effect_indicator = nil
+                end
+
+                -- Reset all flags for next round
+                self.ritual_effect = nil
                 self.temp_mult = 0
             end
-            
-            if SMODS.end_calculate_context(context) and self.temp_mult and self.temp_mult > 0 then
+
+            -- Apply mult effect if it was chosen
+            if SMODS.end_calculate_context and SMODS.end_calculate_context(context) and self.temp_mult and self.temp_mult > 0 then
                 return {
                     mult_mod = self.temp_mult,
-                    card = self
+                    card = self,
+                    message = localize { type = 'variable', key = 'a_mult', vars = { self.temp_mult } }
                 }
             end
+
+            return nil
         end,
 
         loc_def = function(self)
@@ -574,57 +732,120 @@ local jokers = {
         soul_pos = nil,
 
         calculate = function(self, context)
-            if context.end_of_round and not context.individual and not context.blueprint then
-                -- Only consume jokers if there are other jokers to consume
-                if #G.jokers.cards > 1 then
-                    -- Get list of other jokers
-                    local other_jokers = {}
-                    for i, card in ipairs(G.jokers.cards) do
-                        if card ~= self then
-                            table.insert(other_jokers, card)
+            -- Reset temporarily stored variables if they don't exist
+            self.ritual_effect = self.ritual_effect or nil
+            self.temp_mult = self.temp_mult or 0
+
+            -- Check specifically for blind selection context
+            if context.setting_blind and not context.blueprint then
+                -- Choose a random effect (1-3)
+                local effect = math.random(3)
+
+                if effect == 1 then
+                    -- Apply mult boost
+                    self.ritual_effect = "mult"
+                    self.temp_mult = self.ability.extra.mult_option
+
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'after',
+                        delay = 0.3,
+                        func = function()
+                            card_eval_status_text(self, 'extra', nil, nil, nil, {message = "DARK POWER", colour = G.C.RED})
+                            play_sound('tarot1', 1, 0.6)
+                            self:juice_up(0.5, 0.5)
+                            return true
                         end
-                    end
-                    
-                    if #other_jokers > 0 then
-                        -- Choose a random joker to consume
-                        local random_index = math.random(1, #other_jokers)
-                        local joker_to_consume = other_jokers[random_index]
-                        
-                        -- Visual effect
-                        joker_to_consume:juice_up(0.3, 0.4)
-                        joker_to_consume.T.r = -0.2
-                        
-                        G.E_MANAGER:add_event(Event({
-                            trigger = 'after',
-                            delay = 0.3,
-                            func = function() 
-                                joker_to_consume:start_dissolve()
-                                G.jokers:remove_card(joker_to_consume)
-                                play_sound('tarot1')
-                                
-                                -- Track destroyed joker
-                                if not G.GAME.jokers_destroyed then G.GAME.jokers_destroyed = 0 end
-                                G.GAME.jokers_destroyed = G.GAME.jokers_destroyed + 1
-                                
-                                -- Gain power
-                                self.ability.extra.consumed_jokers = self.ability.extra.consumed_jokers + 1
-                                self.ability.extra.total_mult = self.ability.extra.consumed_jokers * self.ability.extra.mult_per_joker
-                                
-                                card_eval_status_text(self, 'extra', nil, nil, nil, {message = "CONSUMED", colour = G.C.RED})
-                                return true
+                    }))
+                elseif effect == 2 then
+                    -- Blood Money: Add half the blind chips but set money to 0
+                    self.ritual_effect = "bloodmoney"
+
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'after',
+                        delay = 0.3,
+                        func = function()
+                            -- Calculate half the needed chips
+                            local half_chips = math.floor(G.GAME.blind.chips / 2)
+
+                            -- Add chips
+                            ease_chips(half_chips)
+
+                            -- Set money to 0
+                            local current_money = G.GAME.dollars
+                            if current_money > 0 then
+                                ease_dollars(-current_money)
                             end
-                        }))
-                    end
+
+                            card_eval_status_text(self, 'extra', nil, nil, nil, {message = "BLOOD SACRIFICE", colour = G.C.RED})
+                            play_sound('tarot1', 1, 0.6)  -- More ominous sound for money sacrifice
+                            self:juice_up(0.5, 0.5)
+                            return true
+                        end
+                    }))
+                else
+                    -- Increase hand size for this round only
+                    self.ritual_effect = "handsize"
+
+                    G.E_MANAGER:add_event(Event({
+                        trigger = 'after',
+                        delay = 0.3,
+                        func = function()
+                            -- Directly modify the hand size
+                            G.hand:change_size(1)
+                            card_eval_status_text(self, 'extra', nil, nil, nil, {message = "RITUAL COMPLETE", colour = G.C.RED})
+                            play_sound('tarot1', 1, 0.6)
+                            self:juice_up(0.5, 0.5)
+                            return true
+                        end
+                    }))
                 end
+
+                -- Show a message indicating the ritual effect
+                G.E_MANAGER:add_event(Event({
+                    trigger = 'after',
+                    delay = 0.5,
+                    func = function()
+                        local effect_text = "Demonic Ritual Activated!"
+                        if self.ritual_effect == "bloodmoney" then
+                            effect_text = "Blood Money: Souls for Chips!"
+                        end
+
+                        attention_text({
+                            text = effect_text,
+                            hold = 2.0,
+                            scale = 1.2,
+                            major = self,
+                            backdrop_colour = G.C.RED,
+                            align = "cm",
+                            offset = {x = 0, y = 0}
+                        })
+                        return true
+                    end
+                }))
             end
-            
-            if SMODS.end_calculate_context(context) and self.ability.extra.total_mult > 0 then
+
+            -- Check for end of round to reset effects
+            if context.end_of_round and not context.individual and not context.blueprint then
+                -- Reset hand size at end of round if we increased it
+                if self.ritual_effect == "handsize" then
+                    G.hand:change_size(-1)
+                end
+
+                -- Reset all flags for next round
+                self.ritual_effect = nil
+                self.temp_mult = 0
+            end
+
+            -- Apply mult effect if it was chosen
+            if SMODS.end_calculate_context(context) and self.temp_mult and self.temp_mult > 0 then
                 return {
-                    mult_mod = self.ability.extra.total_mult,
+                    mult_mod = self.temp_mult,
                     card = self,
-                    message = localize { type = 'variable', key = 'a_mult', vars = { self.ability.extra.total_mult } }
+                    message = localize { type = 'variable', key = 'a_mult', vars = { self.temp_mult } }
                 }
             end
+
+            return nil
         end,
 
         loc_def = function(self)
