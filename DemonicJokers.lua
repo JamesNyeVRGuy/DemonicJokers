@@ -214,14 +214,14 @@ local jokers = {
         text = {
             "At the start of each {C:attention}round{}, randomly performs one ritual:",
             "{C:mult}+50 mult{} but {C:red}takes 25% of scored chips as Soul Tax{},",
-            "{C:chips}90% of blind chips{} but costs all dollars, or {C:attention}+4 hand size{} with {C:red}4 destroyed cards{}",
-            "{C:red}(A different dark gift each round){}",
+            "{C:chips}90% of blind chips{} but costs {C:attention}50%{} of your money,", 
+            "{C:attention}+4 hand size{} with {C:red}4 destroyed cards{}",
         },
         config = { extra = { mult_option = 50, chip_option = 90, used_this_round = false, last_round_name = "" } },
         pos = { x = 0, y = 0 },
         rarity = 2,
         cost = 6,
-        blueprint_compat = true,
+        blueprint_compat = false,
         eternal_compat = true,
         unlocked = true,
         discovered = true,
@@ -238,7 +238,7 @@ local jokers = {
             -- Check specifically for blind selection context
             if context.setting_blind and not context.blueprint then
                 -- Choose a random effect (1-3)
-                local effect = 1
+                local effect = math.random(3)
 
                 if effect == 1 then
                     -- Apply mult boost with soul tax (25% of scored chips)
@@ -291,7 +291,6 @@ local jokers = {
                         end
                     }))
                 elseif effect == 2 then
-                    -- Blood Money: Add 90% of the blind chips but set money to 0
                     self.ritual_effect = "bloodmoney"
 
                     -- Add visual indicator for blood money
@@ -337,11 +336,19 @@ local jokers = {
                             if G.GAME and G.GAME.blind and G.GAME.blind.chips then
                                 blood_money_chips = math.floor(G.GAME.blind.chips * 0.9)
                             end
+                            
+                            -- get current money (safely) then set to 10% of current money rounded down to the nearest dollar
+                            local current_money = 0
+                            local new_money = 0
+                            if G.GAME and G.GAME.dollars then
+                                current_money = G.GAME.dollars
+                                new_money = math.floor(current_money * 0.5)
+                            end
 
                             -- Add chips
                             ease_chips(blood_money_chips)
 
-                            ease_dollars(-10)
+                            ease_dollars(-new_money)
 
                             card_eval_status_text(self, 'extra', nil, nil, nil, {message = "BLOOD SACRIFICE", colour = G.C.RED})
                             play_sound('tarot1', 1, 0.6)
@@ -463,11 +470,11 @@ local jokers = {
                     func = function()
                         local effect_text = "Demonic Ritual Activated!"
                         if self.ritual_effect == "bloodmoney" then
-                            effect_text = "Blood Money: Souls for Chips!"
+                            effect_text = "Souls for Chips!"
                         elseif self.ritual_effect == "handsize" then
-                            effect_text = "Dark Pact: Bigger Hand, Fewer Cards!"
+                            effect_text = "Bigger Hand, Fewer Cards!"
                         elseif self.ritual_effect == "mult" then
-                            effect_text = "Soul Tax: 25% of Your Winnings are Mine!"
+                            effect_text = "25% of Your Winnings are Mine!"
                         end
 
                         attention_text({
@@ -494,7 +501,7 @@ local jokers = {
                     G.FUNCS.original_hand_eval = G.FUNCS.hand_eval
 
                     -- Create a new hand_eval function that applies Soul Tax
-                    G.FUNCS.hand_eval = function(poker_hand, context)
+                    G.FUNCS.hand_eval = function(poker_hand)
                         -- Get the original calculated result
                         local result = G.FUNCS.original_hand_eval(poker_hand, context)
 
