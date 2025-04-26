@@ -1,6 +1,6 @@
 --- STEAMODDED HEADER
---- MOD_NAME: DemonJokers
---- MOD_ID: DemonJokers
+--- MOD_NAME: DemonicJokers
+--- MOD_ID: DemonicJokers
 --- MOD_AUTHOR: [Evil Coder]
 --- MOD_DESCRIPTION: Dark and evil rituals for your cards and jokers
 --- MOD_VERSION: 1.0.1
@@ -99,12 +99,16 @@ local jokers = {
     cursejoker = {
         name = "Curse Joker",
         text = {
-            "{C:green}#3# in #4#{} chance of converting",
-            "scored {C:attention}numbered cards{} to {C:attention}value 1{}", 
-            "but gives {C:mult}+#1# mult{} for each",
-            "{C:red}(debug: Converts cards to 1s but gives mult){}",
+            "{C:green}1 in 3{} chance to convert",
+            "",
+            "Rank {C:attention}> 6{} to {C:attention}King{},",
+            "Kings to {C:attention}4{},",
+            "Rank {C:attention}< 6{} go up one rank",
+            "Ranks converted to {C:attention}6{} add {C:mult}+5 mult{}",
+            "and receive a {C:Black}Cursed Seal{}",
+            "{C:inactive}(Currently {C:mult}+#1#{C:inactive} Mult){}",
         },
-        config = { extra = { mult_per_card = 2, x_mult = 0, odds = 3, normal = 1 } },
+        config = { extra = { mult_per_six = 5, total_mult = 0, odds = 3 } },
         pos = { x = 0, y = 0 },
         rarity = 2,
         cost = 5,
@@ -116,24 +120,103 @@ local jokers = {
         soul_pos = nil,
 
         calculate = function(self, context)
+            -- Initialize total_mult if it doesn't exist yet
+            if self.ability.extra.total_mult == nil then
+                self.ability.extra.total_mult = 0
+            end
+
             if context.individual and context.cardarea == G.play then
-                if context.other_card:get_id() <= 10 then -- numbered cards only
-                    if pseudorandom('cursejoker') < G.GAME.probabilities.normal/self.ability.extra.odds then
-                        context.other_card.base.value = 1
-                        card_eval_status_text(self, 'extra', nil, nil, nil, {message = "CURSED", colour = G.C.RED})
-                        
-                        return {
-                            mult = self.ability.extra.mult_per_card,
-                            card = self,
-                            message = localize { type = 'variable', key = 'a_mult', vars = { self.ability.extra.mult_per_card } }
-                        }
+                -- Check if the curse effect activates (1 in 3 chance)
+                if pseudorandom('cursejoker') < G.GAME.probabilities.normal/self.ability.extra.odds then
+                    local card = context.other_card
+                    local id = card:get_id()
+                    local suit = card.base.suit
+                    local suit_prefix = string.sub(suit, 1, 1) .. '_'  -- "S_", "H_", "D_", "C_"
+
+                    -- Cards higher than 6 become Kings
+                    if id > 6 and id ~= 13 then
+                        card:set_base(G.P_CARDS[suit_prefix .. 'K'])
+                        card_eval_status_text(self, 'extra', nil, nil, nil, {message = "CURSED TO KING", colour = G.C.RED})
+
+                        -- Kings are destroyed
+                    elseif id == 13 then
+                        -- Destroy the card with visual effect
+                        card:destroy();
+
+                        -- Cards lower than 6 go up one rank
+                    elseif id < 6 then
+                        -- Increase rank by 1
+                        local new_id = id + 1
+
+                        -- Check if card will become a 6 (5 going up to 6)
+                        if new_id == 6 then
+                            -- Add +5 mult to the running total (safely)
+                            self.ability.extra.total_mult = self.ability.extra.total_mult + self.ability.extra.mult_per_six
+
+                            -- Add Cursed Seal to the card - now this should work with our registered seal
+                            G.E_MANAGER:add_event(Event({
+                                trigger = 'after',
+                                delay = 0.1, -- Small delay to ensure base is set first
+                                func = function()
+                                    -- Now we can use the "Cursed" seal
+                                    if G.P_SEALS["Cursed"] then -- Check if seal exists to be safe
+                                        card:set_seal("Cursed", nil, true)
+                                        card_eval_status_text(self, 'extra', nil, nil, nil, {
+                                            message = "+5 MULT, CURSED SEAL ADDED",
+                                            colour = G.C.RED
+                                        })
+                                    else
+                                        -- Fallback to Red seal if Cursed isn't registered
+                                        card:set_seal("Red", nil, true)
+                                        card_eval_status_text(self, 'extra', nil, nil, nil, {
+                                            message = "+5 MULT, SEAL ADDED",
+                                            colour = G.C.RED
+                                        })
+                                    end
+                                    return true
+                                end
+                            }))
+                        end
+
+                        -- Convert new_id to the correct rank key
+                        local rank_key
+                        if new_id == 1 then
+                            rank_key = "A"
+                        elseif new_id == 10 then
+                            rank_key = "T"
+                        else
+                            rank_key = tostring(new_id)
+                        end
+
+                        -- Set the card to same suit but higher rank
+                        card:set_base(G.P_CARDS[suit_prefix .. rank_key])
+                        card_eval_status_text(self, 'extra', nil, nil, nil, {message = "RANK INCREASED", colour = G.C.RED})
                     end
+
+                    -- Juice up the card to show the transformation
+                    card:juice_up(0.5, 0.5)
+
+                    return {
+                        message = "CURSED",
+                        colour = G.C.RED,
+                        card = self
+                    }
                 end
+            end
+
+            -- Apply accumulated mult in final calculation
+            if SMODS.end_calculate_context(context) and self.ability.extra.total_mult > 0 then
+                return {
+                    mult_mod = self.ability.extra.total_mult,
+                    card = self,
+                    message = localize { type = 'variable', key = 'a_mult', vars = { self.ability.extra.total_mult } }
+                }
             end
         end,
 
         loc_def = function(self)
-            return { self.ability.extra.mult_per_card, self.ability.extra.x_mult, G.GAME.probabilities.normal, self.ability.extra.odds }
+            -- Safely return the total_mult (or 0 if it doesn't exist yet)
+            return { self.ability.extra.total_mult or 0 }
         end,
     },
 

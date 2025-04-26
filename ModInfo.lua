@@ -5,5 +5,5 @@ return {
     author = "James Nye",
     description = "A set of demonic jokers for Balatro",
     version = "1.0.0",
-    dependencies = {}, -- List any dependencies if required
+    dependencies = {"CursedSeal"}, -- List any dependencies if required
 }
